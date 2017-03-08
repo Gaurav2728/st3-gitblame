@@ -6,20 +6,36 @@ import subprocess
 from subprocess import check_output as shell
 
 
-blame_cache = {}
+template_scheme = {}
+template_scheme['light'] = '''
+<style>
+span {
+    background-color: #aee;
+    color: #444;
+}
+strong, a {
+    text-decoration: none;
+    color: #000;
+}
+</style>
+'''
+template_scheme['dark'] = '''
+<style>
+span {
+    background-color: brown;
+}
+a {
+    text-decoration: none;
+}
+</style>
+'''
+
 template = '''
 <span>
-<style>
-span {{
-    background-color: brown;
-}}
-a {{
-    text-decoration: none;
-}}
-</style>
+{scheme}
+
 <strong>Git Blame:</strong> ({user})
-Updated: {date} {time} | 
-<a href="copy-{sha}">[{sha}]</a> |
+Last updated: {date} {time} | <a href="copy-{sha}">[{sha}]</a>
 <a href="close">
 <close>X</close>&nbsp;
 </a>
@@ -57,13 +73,6 @@ class BlameCommand(sublime_plugin.TextCommand):
             user, date, time, tz_offset = file_path, user, date, time
             file_path = None
 
-        # Fix an issue where the username has a space
-        # Im going to need to do something better though if people 
-        # start to have multiple spaces in their names.
-        if not isinstance(date[0], int):
-            user = "{0} {1}".format(user, date)
-            date, time = time, tz_offset
-
         return(sha, user[1:], date, time)
 
     def on_phantom_close(self, href):
@@ -88,7 +97,13 @@ class BlameCommand(sublime_plugin.TextCommand):
                 return
 
             sha, user, date, time = self.parse_blame(result)
-            body = template.format(sha=sha, user=user, date=date, time=time)
+
+            settings = sublime.load_settings('Preferences.sublime-settings')
+            scheme_color = settings.get('gitblame.scheme') or 'dark'
+            print(scheme_color)
+
+            body = template.format(sha=sha, user=user, date=date, time=time, 
+                scheme=template_scheme.get(scheme_color, ''))
 
             phantom = sublime.Phantom(line, body, sublime.LAYOUT_BLOCK, self.on_phantom_close)
             phantoms.append(phantom)
